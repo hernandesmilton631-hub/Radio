@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radio Meridiano — Consola de gestión</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12151b;
+    --panel:#1a1e26;
+    --panel-2:#212631;
+    --panel-3:#2a3140;
+    --line:rgba(232,228,218,0.08);
+    --line-strong:rgba(232,228,218,0.18);
+    --text:#e8e4da;
+    --text-dim:#8892a0;
+    --text-faint:#5b6270;
+    --amber:#e0a458;
+    --amber-dim:#8a6a3f;
+    --red:#e8483a;
+    --green:#6fcf6f;
+    --blue:#5b8ac9;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:inherit; cursor:pointer;}
+  .shell{
+    display:grid;
+    grid-template-columns:220px 1fr;
+    grid-template-rows:64px 1fr;
+    grid-template-areas:
+      "topbar topbar"
+      "nav main";
+    min-height:100vh;
+    max-width:1280px;
+    margin:0 auto;
+    border-left:1px solid var(--line);
+    border-right:1px solid var(--line);
+  }
+
+  /* ---------- TOPBAR ---------- */
+  .topbar{
+    grid-area:topbar;
+    display:flex;
+    align-items:center;
+    gap:20px;
+    padding:0 26px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line-strong);
+  }
+  .nameplate{
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size:19px;
+    letter-spacing:0.02em;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .nameplate .freq{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--amber);
+    font-weight:400;
+    letter-spacing:0.04em;
+  }
+  .onair-pill{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 14px;
+    border-radius:3px;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.08em;
+  }
+  .onair-dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--text-faint);
+    transition:background .2s;
+  }
+  .onair-pill.live .onair-dot{
+    background:var(--red);
+    animation:blink 1.1s infinite;
+  }
+  .onair-pill.live{border-color:var(--red);}
+  @keyframes blink{0%,100%{opacity:1;} 50%{opacity:0.35;}}
+  .topbar-spacer{flex:1;}
+  .topbar-stat{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    display:flex;
+    gap:7px;
+    align-items:baseline;
+  }
+  .topbar-stat b{color:var(--text); font-weight:500;}
+  .clock{
+    font-family:'JetBrains Mono', monospace;
+    font-size:13px;
+    color:var(--amber);
+    letter-spacing:0.03em;
+    min-width:64px;
+  }
+
+  /* ---------- NAV ---------- */
+  nav.side{
+    grid-area:nav;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:18px 0;
+  }
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:11px;
+    padding:12px 24px;
+    font-size:13.5px;
+    color:var(--text-dim);
+    border-left:2px solid transparent;
+    transition:color .12s, border-color .12s, background .12s;
+  }
+  .nav-item:hover{color:var(--text); background:var(--panel-2);}
+  .nav-item.active{
+    color:var(--amber);
+    border-left-color:var(--amber);
+    background:var(--panel-2);
+  }
+  .nav-item .ico{
+    width:16px; text-align:center;
+    font-family:'JetBrains Mono', monospace;
+    font-size:12px;
+  }
+  .nav-sep{
+    margin:14px 24px 8px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+  }
+
+  /* ---------- MAIN ---------- */
+  main{
+    grid-area:main;
+    padding:30px 34px 90px;
+    overflow-x:hidden;
+  }
+  .panel-view{display:none;}
+  .panel-view.active{display:block;}
+  h1.page-title{
+    font-family:'Oswald', sans-serif;
+    font-weight:600;
+    font-size:24px;
+    margin:0 0 4px;
+    letter-spacing:0.01em;
+  }
+  .page-sub{
+    font-size:13px;
+    color:var(--text-dim);
+    margin:0 0 28px;
+  }
+
+  /* cards / grid */
+  .grid-2{display:grid; grid-template-columns:1.3fr 1fr; gap:18px; margin-bottom:18px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:20px 22px;
+  }
+  .card h2{
+    font-family:'Oswald', sans-serif;
+    font-weight:500;
+    font-size:14px;
+    letter-spacing:0.03em;
+    margin:0 0 16px;
+    color:var(--text);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .card h2 .h2-tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.1em;
+    color:var(--text-faint);
+    font-weight:400;
+  }
+
+  /* now playing */
+  .np-row{display:flex; gap:16px; align-items:center; margin-bottom:18px;}
+  .np-art{
+    width:64px;height:64px;border-radius:4px;
+    background:linear-gradient(135deg,var(--panel-3),var(--panel-2));
+    border:1px solid var(--line-strong);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;color:var(--text-faint);flex-shrink:0;
+  }
+  .np-meta .np-title{font-size:16px;font-weight:500;margin-bottom:3px;}
+  .np-meta .np-sub{font-size:12.5px;color:var(--text-dim);}
+  .vu-wrap{
+    display:flex;
+    align-items:flex-end;
+    gap:3px;
+    height:44px;
+    padding:0 2px;
+    margin-bottom:10px;
+  }
+  .vu-bar{
+    flex:1;
+    background:var(--amber-dim);
+    border-radius:1px;
+    height:8%;
+    transition:height .09s ease-out, background .09s;
+  }
+  .progress-track{
+    height:4px;
+    background:var(--panel-2);
+    border-radius:2px;
+    overflow:hidden;
+    margin-bottom:6px;
+  }
+  .progress-fill{
+    height:100%;
+    width:0%;
+    background:var(--amber);
+    transition:width .3s linear;
+  }
+  .progress-times{
+    display:flex; justify-content:space-between;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px; color:var(--text-faint);
+  }
+
+  /* stream config */
+  .field{margin-bottom:15px;}
+  .field label{
+    display:block;
+    font-size:11.5px;
+    color:var(--text-dim);
+    margin-bottom:6px;
+    letter-spacing:0.02em;
+  }
+  .field input, .field select{
+    width:100%;
+    padding:9px 11px;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:3px;
+    color:var(--text);
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    outline:none;
+  }
+  .field input:focus, .field select:focus{border-color:var(--amber);}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .btn{
+    padding:10px 18px;
+    border-radius:3px;
+    border:1px solid var(--line-strong);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:12.5px;
+    font-weight:500;
+    letter-spacing:0.02em;
+    transition:background .12s, border-color .12s;
+  }
+  .btn:hover{background:var(--panel-3); border-color:var(--text-faint);}
+  .btn-primary{
+    background:var(--amber);
+    color:#241a0c;
+    border-color:var(--amber);
+  }
+  .btn-primary:hover{background:#eab876;}
+  .btn-stop{
+    background:var(--red);
+    color:#2b0d0a;
+    border-color:var(--red);
+  }
+  .status-line{
+    display:flex; align-items:center; gap:8px;
+    margin:16px 0 20px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+  }
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+  .status-dot.ok{background:var(--green);}
+
+  .mini-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .mini-stat{
+    background:var(--panel-2);
+    border-radius:4px;
+    padding:13px 14px;
+  }
+  .mini-stat .ms-label{font-size:10.5px; color:var(--text-faint); letter-spacing:0.05em; text-transform:uppercase; margin-bottom:6px;}
+  .mini-stat .ms-value{font-family:'JetBrains Mono', monospace; font-size:19px; color:var(--text); font-weight:500;}
+  .mini-stat .ms-value.amber{color:var(--amber);}
+
+  /* media library */
+  .lib-toolbar{
+    display:flex; gap:12px; align-items:center; margin-bottom:16px;
+  }
+  .lib-toolbar input[type=text]{
+    flex:1; max-width:320px;
+    padding:9px 12px;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:3px;
+    color:var(--text);
+    font-size:12.5px;
+    outline:none;
+  }
+  .lib-toolbar select{
+    padding:9px 12px;
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:3px;
+    color:var(--text);
+    font-size:12.5px;
+  }
+  table{width:100%; border-collapse:collapse;}
+  thead th{
+    text-align:left;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    padding:10px 12px;
+    border-bottom:1px solid var(--line-strong);
+  }
+  tbody td{
+    padding:12px;
+    font-size:13px;
+    border-bottom:1px solid var(--line);
+    color:var(--text);
+  }
+  tbody tr:hover{background:var(--panel-2);}
+  .cat-badge{
+    display:inline-block;
+    padding:3px 9px;
+    border-radius:3px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.04em;
+  }
+  .row-actions{display:flex; gap:8px;}
+  .row-actions button{
+    background:none; border:1px solid var(--line-strong);
+    color:var(--text-dim); padding:5px 9px; border-radius:3px; font-size:11px;
+  }
+  .row-actions button:hover{border-color:var(--amber); color:var(--amber);}
+  .dur-mono, .size-mono{font-family:'JetBrains Mono', monospace; color:var(--text-dim); font-size:12px;}
+
+  /* schedule */
+  .sched-table{width:100%; border-collapse:collapse; table-layout:fixed;}
+  .sched-table th{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    padding:9px 6px;
+    text-align:center;
+    border-bottom:1px solid var(--line-strong);
+  }
+  .sched-table th:first-child{text-align:left; width:70px;}
+  .sched-time{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    color:var(--text-faint);
+    padding:8px 6px;
+    vertical-align:top;
+    white-space:nowrap;
+  }
+  .sched-cell{
+    padding:3px;
+    vertical-align:top;
+    height:52px;
+  }
+  .sched-block{
+    height:100%;
+    border-radius:3px;
+    padding:6px 7px;
+    font-size:10.5px;
+    line-height:1.35;
+    cursor:pointer;
+    border:1px solid transparent;
+    transition:border-color .12s;
+  }
+  .sched-block:hover{border-color:var(--text-dim);}
+  .sched-block .sb-title{font-weight:500; margin-bottom:2px;}
+  .sched-block .sb-host{
+    font-family:'JetBrains Mono', monospace;
+    font-size:9px;
+    opacity:0.75;
+  }
+  .sched-detail{
+    margin-top:20px;
+    padding:16px 18px;
+    background:var(--panel-2);
+    border-radius:5px;
+    border:1px solid var(--line-strong);
+    display:none;
+  }
+  .sched-detail.show{display:block;}
+  .sched-detail .sd-title{font-family:'Oswald',sans-serif; font-size:16px; font-weight:500; margin-bottom:4px;}
+  .sched-detail .sd-meta{font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--text-dim);}
+
+  .legend{display:flex; gap:16px; margin-top:14px; flex-wrap:wrap;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-dim);}
+  .legend-chip{width:9px;height:9px;border-radius:2px;}
+
+  /* ---------- RADIOS EN VIVO (reales) ---------- */
+  .radio-note{
+    background:var(--panel-2);
+    border:1px solid var(--line-strong);
+    border-radius:5px;
+    padding:12px 16px;
+    font-size:12.5px;
+    color:var(--text-dim);
+    margin-bottom:20px;
+  }
+  .radio-note b{color:var(--amber); font-weight:500;}
+  .station-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+    gap:14px;
+  }
+  .station-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:16px 18px;
+    transition:border-color .12s;
+  }
+  .station-card.playing{border-color:var(--amber);}
+  .station-genre{
+    font-family:'JetBrains Mono', monospace;
+    font-size:9.5px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--text-faint);
+    margin-bottom:8px;
+  }
+  .station-name{
+    font-family:'Oswald', sans-serif;
+    font-weight:500;
+    font-size:16px;
+    margin-bottom:4px;
+  }
+  .station-desc{
+    font-size:12px;
+    color:var(--text-dim);
+    line-height:1.45;
+    margin-bottom:14px;
+    min-height:34px;
+  }
+  .station-play{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    width:100%;
+    justify-content:center;
+    padding:9px;
+    border-radius:3px;
+    border:1px solid var(--line-strong);
+    background:var(--panel-2);
+    color:var(--text);
+    font-size:12px;
+    font-weight:500;
+  }
+  .station-play:hover{border-color:var(--amber);}
+  .station-card.playing .station-play{
+    background:var(--amber);
+    border-color:var(--amber);
+    color:#241a0c;
+  }
+  .station-status{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    color:var(--text-faint);
+    margin-top:9px;
+    min-height:14px;
+  }
+  .station-status.buffering{color:var(--amber);}
+  .station-status.live{color:var(--green);}
+  .station-status.error{color:var(--red);}
+
+  .sticky-player{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    background:var(--panel);
+    border-top:1px solid var(--line-strong);
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:12px 24px;
+    z-index:50;
+  }
+  .sp-info{flex:1; min-width:0;}
+  .sp-name{font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .sp-genre{font-family:'JetBrains Mono', monospace; font-size:10px; color:var(--text-faint);}
+  .sp-btn{
+    width:38px; height:38px; border-radius:50%;
+    background:var(--amber); color:#241a0c;
+    border:none; display:flex; align-items:center; justify-content:center;
+    font-size:14px; flex-shrink:0;
+  }
+  .sp-btn.paused{background:var(--panel-2); color:var(--text); border:1px solid var(--line-strong);}
+  .sp-vol{width:90px;}
+  .sp-empty{color:var(--text-faint); font-size:12.5px;}
+
+  .modal-overlay{
+    position:fixed; inset:0;
+    background:rgba(10,12,16,0.72);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:100;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-box{
+    background:var(--panel);
+    border:1px solid var(--line-strong);
+    border-radius:6px;
+    padding:22px 24px;
+    width:340px;
+  }
+  .modal-box h3{
+    font-family:'Oswald', sans-serif;
+    font-weight:500;
+    font-size:16px;
+    margin:0 0 4px;
+  }
+  .modal-box .modal-sub{font-size:12px; color:var(--text-dim); margin-bottom:16px;}
+  .modal-actions{display:flex; gap:10px; margin-top:18px; justify-content:flex-end;}
+
+  @media (max-width: 860px){
+    .shell{grid-template-columns:70px 1fr;}
+    .nav-item span.label{display:none;}
+    .grid-2{grid-template-columns:1fr;}
+    .nameplate .freq{display:none;}
+    .topbar-stat{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="topbar">
+    <div class="nameplate">Radio Meridiano <span class="freq">STREAMING · 24/7</span></div>
+    <div class="onair-pill" id="onairPill">
+      <span class="onair-dot"></span>
+      <span id="onairLabel">FUERA DE AIRE</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-stat">OYENTES <b id="topListeners">0</b></div>
+    <div class="topbar-stat">BITRATE <b id="topBitrate">128 kbps</b></div>
+    <div class="clock" id="clock">00:00:00</div>
+  </div>
+
+  <nav class="side">
+    <div class="nav-item active" data-panel="dashboard"><span class="ico">▣</span><span class="label">Panel general</span></div>
+    <div class="nav-item" data-panel="stream"><span class="ico">◉</span><span class="label">Config. de stream</span></div>
+    <div class="nav-item" data-panel="radios"><span class="ico">♫</span><span class="label">Radios en vivo</span></div>
+    <div class="nav-item" data-panel="biblioteca"><span class="ico">▤</span><span class="label">Biblioteca</span></div>
+    <div class="nav-item" data-panel="programacion"><span class="ico">▦</span><span class="label">Programación</span></div>
+    <div class="nav-sep">Sistema</div>
+    <div class="nav-item" data-panel="analiticas"><span class="ico">▲</span><span class="label">Analíticas</span></div>
+  </nav>
+
+  <main>
+
+    <!-- ================= DASHBOARD ================= -->
+    <section class="panel-view active" id="panel-dashboard">
+      <h1 class="page-title">Panel general</h1>
+      <p class="page-sub">Estado de la transmisión y actividad reciente de Radio Meridiano.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>En reproducción <span class="h2-tag" id="npTag">EN VIVO</span></h2>
+          <div class="np-row">
+            <div class="np-art">COVER</div>
+            <div class="np-meta">
+              <div class="np-title" id="npTitle">Rotación automática</div>
+              <div class="np-sub" id="npSub">Playlist general · Radio Meridiano</div>
+            </div>
+          </div>
+          <div class="vu-wrap" id="vuWrap"></div>
+          <div class="progress-track"><div class="progress-fill" id="progFill"></div></div>
+          <div class="progress-times"><span id="progNow">00:00</span><span id="progTotal">00:00</span></div>
+        </div>
+
+        <div class="card">
+          <h2>Resumen del día</h2>
+          <div class="mini-stats">
+            <div class="mini-stat">
+              <div class="ms-label">Oyentes pico</div>
+              <div class="ms-value amber" id="msPeak">312</div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-label">Tiempo en aire</div>
+              <div class="ms-value" id="msUptime">00:00</div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-label">Ancho de banda</div>
+              <div class="ms-value">142 GB</div>
+            </div>
+          </div>
+          <div class="status-line" style="margin-top:18px;">
+            <span class="status-dot ok"></span> Servidor Icecast: <b style="color:var(--text)">conectado</b>
+          </div>
+          <div class="status-line">
+            <span class="status-dot ok"></span> Respaldo automático: <b style="color:var(--text)">activo</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Próximos programas <span class="h2-tag">HOY</span></h2>
+        <table>
+          <thead><tr><th>Hora</th><th>Programa</th><th>Locutor / DJ</th><th>Categoría</th></tr></thead>
+          <tbody id="upcomingBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= STREAM CONFIG ================= -->
+    <section class="panel-view" id="panel-stream">
+      <h1 class="page-title">Configuración de stream</h1>
+      <p class="page-sub">Parámetros del servidor de transmisión y control de emisión.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Servidor de streaming</h2>
+          <div class="field">
+            <label>Nombre de la emisora</label>
+            <input type="text" value="Radio Meridiano">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Tipo de servidor</label>
+              <select>
+                <option>Icecast 2</option>
+                <option>SHOUTcast v2</option>
+                <option>AzuraCast (Icecast interno)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Puerto</label>
+              <input type="text" value="8000">
+            </div>
+          </div>
+          <div class="field">
+            <label>URL del punto de montaje (mount point)</label>
+            <input type="text" id="streamUrl" value="https://stream.radiomeridiano.fm:8000/live.mp3">
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label>Formato de audio</label>
+              <select>
+                <option>MP3 · 128 kbps</option>
+                <option>MP3 · 192 kbps</option>
+                <option>AAC+ · 64 kbps</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Servidor de respaldo</label>
+              <input type="text" value="backup.radiomeridiano.fm:8000">
+            </div>
+          </div>
+
+          <div class="status-line">
+            <span class="status-dot" id="cfgDot"></span> Estado: <b id="cfgStatus" style="color:var(--text)">desconectado</b>
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" id="btnStart">Iniciar transmisión</button>
+            <button class="btn btn-stop" id="btnStop">Detener transmisión</button>
+            <button class="btn">Probar conexión</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Codificador de origen</h2>
+          <div class="field">
+            <label>Fuente de audio</label>
+            <select>
+              <option>Línea de estudio (mezcladora)</option>
+              <option>Cola de reproducción automática (AutoDJ)</option>
+              <option>Entrada de micrófono en vivo</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Nombre de usuario del origen</label>
+            <input type="text" value="source">
+          </div>
+          <div class="field">
+            <label>Contraseña del origen</label>
+            <input type="password" value="••••••••••">
+          </div>
+          <div class="field">
+            <label>Metadatos (título / artista dinámico)</label>
+            <select>
+              <option>Actualizar automáticamente desde AutoDJ</option>
+              <option>Actualización manual</option>
+            </select>
+          </div>
+          <div class="mini-stats" style="margin-top:8px;">
+            <div class="mini-stat"><div class="ms-label">Bitrate</div><div class="ms-value">128 kbps</div></div>
+            <div class="mini-stat"><div class="ms-label">Latencia</div><div class="ms-value">2.4 s</div></div>
+            <div class="mini-stat"><div class="ms-label">Slots</div><div class="ms-value">4 / 50</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RADIOS EN VIVO (reales) ================= -->
+    <section class="panel-view" id="panel-radios">
+      <h1 class="page-title">Radios en vivo</h1>
+      <p class="page-sub">Emisoras públicas reales. Presiona reproducir para escuchar la transmisión en directo.</p>
+
+      <div class="radio-note">
+        Estas son <b>emisoras reales que transmiten en este momento</b>, tomadas de streams públicos abiertos (SomaFM, Radio Paradise, KEXP, WFMU). El panel de <b>Configuración de stream</b> sigue siendo una simulación de cómo se vería configurar tu propia emisora en un CMS, ya que emitir tu propia señal requiere un servidor Icecast real y un codificador de origen.
+      </div>
+
+      <div class="station-grid" id="stationGrid"></div>
+    </section>
+
+    <!-- ================= BIBLIOTECA ================= -->
+    <section class="panel-view" id="panel-biblioteca">
+      <h1 class="page-title">Biblioteca multimedia</h1>
+      <p class="page-sub">Pistas, programas grabados, cuñas y jingles disponibles para programar.</p>
+
+      <div class="card">
+        <div class="lib-toolbar">
+          <input type="text" id="libSearch" placeholder="Buscar por título o locutor…">
+          <select id="libFilter">
+            <option value="">Todas las categorías</option>
+            <option value="Música">Música</option>
+            <option value="Podcast">Podcast</option>
+            <option value="Cuña">Cuña</option>
+            <option value="Jingle">Jingle</option>
+          </select>
+          <div style="flex:1"></div>
+          <select id="uploadCat" title="Categoría para los archivos que subas">
+            <option value="Música">Música</option>
+            <option value="Podcast">Podcast</option>
+            <option value="Cuña">Cuña</option>
+            <option value="Jingle">Jingle</option>
+          </select>
+          <input type="file" id="fileInput" accept="audio/*" multiple hidden>
+          <button class="btn btn-primary" id="btnUpload">Subir archivo</button>
+        </div>
+        <div class="radio-note" style="margin-bottom:14px;">
+          Los ítems marcados como <b>demo</b> son datos de ejemplo sin archivo real y no se pueden reproducir. Sube tu propio audio con "Subir archivo" para probar la reproducción real, o usa "Eliminar" para quitar cualquier ítem de la lista.
+        </div>
+        <table>
+          <thead>
+            <tr><th>Título</th><th>Categoría</th><th>Duración</th><th>Formato</th><th>Tamaño</th><th>Acciones</th></tr>
+          </thead>
+          <tbody id="libBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ================= PROGRAMACIÓN ================= -->
+    <section class="panel-view" id="panel-programacion">
+      <h1 class="page-title">Programación semanal</h1>
+      <p class="page-sub">Parrilla de programas por día y franja horaria. Clic en un bloque para ver el detalle.</p>
+
+      <div class="card">
+        <table class="sched-table" id="schedTable"></table>
+        <div class="legend" id="schedLegend"></div>
+        <div class="sched-detail" id="schedDetail">
+          <div class="sd-title" id="sdTitle"></div>
+          <div class="sd-meta" id="sdMeta"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= ANALÍTICAS ================= -->
+    <section class="panel-view" id="panel-analiticas">
+      <h1 class="page-title">Analíticas de audiencia</h1>
+      <p class="page-sub">Comportamiento de los oyentes durante los últimos 7 días.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Oyentes por hora <span class="h2-tag">HOY</span></h2>
+          <div id="barChart" style="display:flex; align-items:flex-end; gap:4px; height:140px; padding-top:10px;"></div>
+        </div>
+        <div class="card">
+          <h2>Resumen semanal</h2>
+          <div class="mini-stats" style="grid-template-columns:1fr 1fr;">
+            <div class="mini-stat"><div class="ms-label">Oyentes únicos</div><div class="ms-value amber">4 210</div></div>
+            <div class="mini-stat"><div class="ms-label">Horas escuchadas</div><div class="ms-value">18 940</div></div>
+            <div class="mini-stat"><div class="ms-label">Duración media de sesión</div><div class="ms-value">27 min</div></div>
+            <div class="mini-stat"><div class="ms-label">Dispositivo principal</div><div class="ms-value" style="font-size:14px;">Móvil · 61%</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="sticky-player" id="stickyPlayer">
+    <button class="sp-btn paused" id="spBtn">▶</button>
+    <div class="sp-info" id="spInfo">
+      <div class="sp-name">Ninguna emisora en reproducción</div>
+      <div class="sp-genre sp-empty">Elige una estación en "Radios en vivo"</div>
+    </div>
+    <input type="range" class="sp-vol" id="spVol" min="0" max="100" value="80">
+  </div>
+</div>
+
+<div class="modal-overlay" id="schedModal">
+  <div class="modal-box">
+    <h3>Programar ítem</h3>
+    <div class="modal-sub" id="schedModalItem">—</div>
+    <div class="field">
+      <label>Día</label>
+      <select id="schedDay"></select>
+    </div>
+    <div class="field">
+      <label>Franja horaria</label>
+      <select id="schedSlot"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="schedCancel">Cancelar</button>
+      <button class="btn btn-primary" id="schedConfirm">Asignar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ NAVEGACIÓN DE PANELES ============ */
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById('panel-' + item.dataset.panel).classList.add('active');
+  });
+});
+
+/* ============ RELOJ ============ */
+function tickClock(){
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('es-ES', {hour12:false});
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* ============ ESTADO DE TRANSMISIÓN ============ */
+let isLive = false;
+let uptimeSeconds = 0;
+let listenerBase = 214;
+
+const onairPill = document.getElementById('onairPill');
+const onairLabel = document.getElementById('onairLabel');
+const cfgDot = document.getElementById('cfgDot');
+const cfgStatus = document.getElementById('cfgStatus');
+const npTag = document.getElementById('npTag');
+const npTitle = document.getElementById('npTitle');
+const npSub = document.getElementById('npSub');
+
+function fmtTime(s){
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+/* ============ EMISORAS REALES (streams públicos en vivo) ============ */
+const STATIONS = [
+  {id:"groovesalad", name:"SomaFM · Groove Salad", genre:"Ambient / downtempo", desc:"Chillout de fondo, mezclado 24/7 desde San Francisco.", url:"https://ice1.somafm.com/groovesalad-128-mp3"},
+  {id:"dronezone", name:"SomaFM · Drone Zone", genre:"Ambient espacial", desc:"Paisajes sonoros lentos y atmosféricos, sin pausas.", url:"https://ice1.somafm.com/dronezone-128-mp3"},
+  {id:"indiepop", name:"SomaFM · Indie Pop Rocks", genre:"Indie / pop rock", desc:"Lo nuevo del indie internacional, curado a mano.", url:"https://ice1.somafm.com/indiepop-128-mp3"},
+  {id:"beatblender", name:"SomaFM · Beat Blender", genre:"Electrónica / downtempo", desc:"Sesiones continuas de DJ, house y downtempo.", url:"https://ice1.somafm.com/beatblender-128-mp3"},
+  {id:"rpmain", name:"Radio Paradise · Main Mix", genre:"Eclectic rock", desc:"Programación variada elegida por oyentes y editores.", url:"https://stream.radioparadise.com/mp3-192"},
+  {id:"rpmellow", name:"Radio Paradise · Mellow Mix", genre:"Acústico / calmado", desc:"Versión más suave y relajada de Radio Paradise.", url:"https://stream.radioparadise.com/mellow-192"},
+  {id:"kexp", name:"KEXP 90.3 FM", genre:"Indie / alternativo", desc:"Emisora pública de Seattle, referente del indie en vivo.", url:"https://kexp-mp3-128.streamguys1.com/kexp128.mp3"},
+  {id:"wfmu", name:"WFMU", genre:"Freeform / variado", desc:"Radio independiente de Nueva Jersey, sin formato fijo.", url:"https://stream0.wfmu.org/freeform-128k"},
+];
+
+const radioAudio = new Audio();
+radioAudio.volume = 0.8;
+let currentStationId = null;
+
+function fmtStationStatus(id, text, cls){
+  const el = document.querySelector(`.station-card[data-id="${id}"] .station-status`);
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'station-status ' + (cls || '');
+}
+
+function renderStations(){
+  const grid = document.getElementById('stationGrid');
+  grid.innerHTML = STATIONS.map(s => `
+    <div class="station-card" data-id="${s.id}">
+      <div class="station-genre">${s.genre}</div>
+      <div class="station-name">${s.name}</div>
+      <div class="station-desc">${s.desc}</div>
+      <button class="station-play" onclick="toggleStation('${s.id}')">▶ Reproducir</button>
+      <div class="station-status"></div>
+    </div>
+  `).join('');
+}
+renderStations();
+
+function toggleStation(id){
+  if(currentStationId === id && !radioAudio.paused){
+    radioAudio.pause();
+    return;
+  }
+  const station = STATIONS.find(s => s.id === id);
+  if(!station) return;
+  document.querySelectorAll('.station-card').forEach(c => c.classList.remove('playing'));
+  STATIONS.forEach(s => fmtStationStatus(s.id, ''));
+  currentStationId = id;
+  currentLibId = null;
+  fmtStationStatus(id, 'conectando…', 'buffering');
+  radioAudio.src = station.url;
+  radioAudio.play().catch(() => {
+    fmtStationStatus(id, 'no se pudo conectar — probá otra emisora', 'error');
+  });
+}
+window.toggleStation = toggleStation;
+
+/* eventos reales del elemento de audio */
+radioAudio.addEventListener('waiting', () => {
+  if(currentStationId) fmtStationStatus(currentStationId, 'cargando buffer…', 'buffering');
+});
+radioAudio.addEventListener('playing', () => {
+  isLive = true;
+  uptimeSeconds = 0;
+  if(!currentStationId) return; // lo que suena es un ítem de biblioteca; ese listener se encarga
+  const station = STATIONS.find(s => s.id === currentStationId);
+  if(!station) return;
+  document.querySelectorAll('.station-card').forEach(c => c.classList.toggle('playing', c.dataset.id === currentStationId));
+  fmtStationStatus(currentStationId, '● en vivo', 'live');
+  onairPill.classList.add('live');
+  onairLabel.textContent = 'AL AIRE';
+  npTag.textContent = 'EN VIVO';
+  npTitle.textContent = station.name;
+  npSub.textContent = station.genre + ' · stream público en directo';
+  document.getElementById('spBtn').textContent = '❚❚';
+  document.getElementById('spBtn').classList.remove('paused');
+  document.querySelector('#spInfo .sp-name').textContent = station.name;
+  document.querySelector('#spInfo .sp-genre').className = 'sp-genre';
+  document.querySelector('#spInfo .sp-genre').textContent = station.genre;
+});
+radioAudio.addEventListener('pause', () => {
+  isLive = false;
+  onairPill.classList.remove('live');
+  onairLabel.textContent = 'FUERA DE AIRE';
+  npTag.textContent = 'EN PAUSA';
+  document.getElementById('spBtn').textContent = '▶';
+  document.getElementById('spBtn').classList.add('paused');
+  document.querySelectorAll('.station-card').forEach(c => c.classList.remove('playing'));
+  if(currentStationId) fmtStationStatus(currentStationId, 'en pausa');
+});
+radioAudio.addEventListener('error', () => {
+  if(currentStationId) fmtStationStatus(currentStationId, 'error de conexión con el stream', 'error');
+  isLive = false;
+});
+
+document.getElementById('spBtn').addEventListener('click', () => {
+  if(!currentStationId) return;
+  if(radioAudio.paused) radioAudio.play(); else radioAudio.pause();
+});
+document.getElementById('spVol').addEventListener('input', (e) => {
+  radioAudio.volume = e.target.value / 100;
+});
+
+/* Los botones de "Configuración de stream" simulan cómo se vería iniciar TU PROPIA
+   emisión (requiere un servidor Icecast real + codificador de origen, que un archivo
+   estático no puede proveer). Para audio real, usa la pestaña "Radios en vivo". */
+document.getElementById('btnStart').addEventListener('click', () => {
+  cfgDot.classList.add('ok');
+  cfgStatus.textContent = 'transmitiendo (simulado)';
+  alert('Esto simula el inicio de TU emisión. Para escuchar radio real, entrá a "Radios en vivo".');
+});
+document.getElementById('btnStop').addEventListener('click', () => {
+  cfgDot.classList.remove('ok');
+  cfgStatus.textContent = 'desconectado';
+});
+
+/* ============ VU METER (decorativo, sigue el estado real de reproducción) ============ */
+const vuWrap = document.getElementById('vuWrap');
+const BAR_COUNT = 28;
+for(let i=0;i<BAR_COUNT;i++){
+  const b = document.createElement('div');
+  b.className = 'vu-bar';
+  vuWrap.appendChild(b);
+}
+const vuBars = document.querySelectorAll('.vu-bar');
+function animateVU(){
+  vuBars.forEach((bar, i) => {
+    let h;
+    if(isLive){
+      const base = 20 + Math.sin(Date.now()/220 + i*0.5) * 18;
+      h = Math.max(6, Math.min(100, base + Math.random()*30));
+    } else {
+      h = 6 + Math.random()*4;
+    }
+    bar.style.height = h + '%';
+    bar.style.background = h > 78 ? 'var(--red)' : (isLive ? 'var(--amber)' : 'var(--amber-dim)');
+  });
+}
+setInterval(animateVU, 100);
+
+/* ============ RELOJ DE TRANSMISIÓN Y OYENTES (estimado, junto a audio real) ============ */
+function tickPlayback(){
+  if(isLive){
+    uptimeSeconds++;
+    document.getElementById('msUptime').textContent = fmtTime(uptimeSeconds);
+    document.getElementById('progNow').textContent = fmtTime(uptimeSeconds);
+    document.getElementById('progTotal').textContent = '∞ en vivo';
+    document.getElementById('progFill').style.width = '100%';
+
+    listenerBase += Math.round((Math.random()-0.45)*6);
+    listenerBase = Math.max(40, listenerBase);
+    document.getElementById('topListeners').textContent = listenerBase;
+  } else {
+    document.getElementById('progFill').style.width = '0%';
+    document.getElementById('progNow').textContent = '00:00';
+    document.getElementById('progTotal').textContent = '00:00';
+    document.getElementById('topListeners').textContent = 0;
+  }
+}
+setInterval(tickPlayback, 1000);
+
+/* ============ BIBLIOTECA MULTIMEDIA ============ */
+const CAT_COLORS = {
+  "Música": {bg:"#5b8ac922", fg:"#8fb4e6"},
+  "Podcast": {bg:"#6fcf6f22", fg:"#8fdb8f"},
+  "Cuña": {bg:"#e0a45822", fg:"#e0a458"},
+  "Jingle": {bg:"#e8483a22", fg:"#e8837a"},
+};
+const CAT_TO_SCHED = {"Música":"musica","Podcast":"podcast","Cuña":"cuna","Jingle":"cuna"};
+
+let libIdCounter = 0;
+function nextLibId(){ return 'lib' + (++libIdCounter); }
+
+// isDemo:true = dato de ejemplo sin archivo real adjunto (no se puede reproducir)
+const LIBRARY = [
+  {id:nextLibId(), title:"Horizonte Nocturno", cat:"Música", dur:"03:34", fmt:"MP3", size:"6.1 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Marea Baja", cat:"Música", dur:"03:07", fmt:"MP3", size:"5.4 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Entrevista: economía local — Ep. 14", cat:"Podcast", dur:"41:12", fmt:"MP3", size:"37.8 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Cuña — Panadería San José", cat:"Cuña", dur:"00:22", fmt:"WAV", size:"3.9 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Jingle de identificación — hora en punto", cat:"Jingle", dur:"00:08", fmt:"WAV", size:"1.4 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Cine Mudo", cat:"Música", dur:"04:03", fmt:"FLAC", size:"24.1 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Crónicas del barrio — Ep. 7", cat:"Podcast", dur:"33:48", fmt:"MP3", size:"31.0 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Cuña — Feria agrícola municipal", cat:"Cuña", dur:"00:30", fmt:"WAV", size:"5.2 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Ruta 9", cat:"Música", dur:"03:21", fmt:"MP3", size:"5.9 MB", isDemo:true, objectUrl:null},
+  {id:nextLibId(), title:"Jingle de retorno — bloque musical", cat:"Jingle", dur:"00:06", fmt:"WAV", size:"1.1 MB", isDemo:true, objectUrl:null},
+];
+
+function fmtBytes(bytes){
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+function renderLibrary(){
+  const q = document.getElementById('libSearch').value.trim().toLowerCase();
+  const filt = document.getElementById('libFilter').value;
+  const body = document.getElementById('libBody');
+  const rows = LIBRARY.filter(item => {
+    const matchQ = !q || item.title.toLowerCase().includes(q);
+    const matchC = !filt || item.cat === filt;
+    return matchQ && matchC;
+  });
+  if(rows.length === 0){
+    body.innerHTML = `<tr><td colspan="6" style="color:var(--text-faint); text-align:center; padding:24px;">Sin resultados.</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map(item => {
+    const c = CAT_COLORS[item.cat];
+    const isPlaying = currentLibId === item.id && !radioAudio.paused;
+    return `<tr>
+      <td>${item.title}${item.isDemo ? ' <span style="color:var(--text-faint); font-family:\'JetBrains Mono\',monospace; font-size:9.5px;">(demo)</span>' : ''}</td>
+      <td><span class="cat-badge" style="background:${c.bg}; color:${c.fg}">${item.cat}</span></td>
+      <td class="dur-mono">${item.dur}</td>
+      <td class="dur-mono">${item.fmt}</td>
+      <td class="size-mono">${item.size}</td>
+      <td class="row-actions">
+        <button ${item.isDemo ? 'disabled title="Sin archivo real — sube uno para probar" style="opacity:0.4; cursor:not-allowed;"' : ''} onclick="playLibraryItem('${item.id}')">${isPlaying ? '❚❚ Pausar' : '▶ Reproducir'}</button>
+        <button onclick="openScheduleModal('${item.id}')">Programar</button>
+        <button onclick="deleteLibraryItem('${item.id}')">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('libSearch').addEventListener('input', renderLibrary);
+document.getElementById('libFilter').addEventListener('change', renderLibrary);
+
+/* --- reproducción real de ítems de biblioteca (comparte el mismo <audio> que Radios en vivo) --- */
+let currentLibId = null;
+function playLibraryItem(id){
+  const item = LIBRARY.find(i => i.id === id);
+  if(!item || !item.objectUrl) return;
+  if(currentLibId === id && !radioAudio.paused){
+    radioAudio.pause();
+    return;
+  }
+  currentStationId = null; // deja de considerarse una emisora en vivo
+  currentLibId = id;
+  document.querySelectorAll('.station-card').forEach(c => c.classList.remove('playing'));
+  radioAudio.src = item.objectUrl;
+  radioAudio.play().catch(() => alert('No se pudo reproducir este archivo.'));
+}
+window.playLibraryItem = playLibraryItem;
+
+function deleteLibraryItem(id){
+  const item = LIBRARY.find(i => i.id === id);
+  if(!item) return;
+  if(!confirm(`¿Eliminar "${item.title}" de la biblioteca?`)) return;
+  if(item.objectUrl) URL.revokeObjectURL(item.objectUrl);
+  if(currentLibId === id) radioAudio.pause();
+  const idx = LIBRARY.findIndex(i => i.id === id);
+  LIBRARY.splice(idx, 1);
+  renderLibrary();
+}
+window.deleteLibraryItem = deleteLibraryItem;
+
+/* --- subida real de archivos de audio --- */
+document.getElementById('btnUpload').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files);
+  const cat = document.getElementById('uploadCat').value;
+  files.forEach(file => {
+    const url = URL.createObjectURL(file);
+    const probe = new Audio(url);
+    const entry = {
+      id: nextLibId(),
+      title: file.name.replace(/\.[^/.]+$/, ''),
+      cat,
+      dur: "…",
+      fmt: (file.type.split('/')[1] || file.name.split('.').pop()).toUpperCase(),
+      size: fmtBytes(file.size),
+      isDemo: false,
+      objectUrl: url,
+    };
+    LIBRARY.unshift(entry);
+    probe.addEventListener('loadedmetadata', () => {
+      entry.dur = fmtTime(probe.duration);
+      renderLibrary();
+    });
+  });
+  renderLibrary();
+  e.target.value = '';
+});
+
+/* --- eventos de audio: si lo que suena es un ítem de biblioteca, refrescar la fila y el reproductor --- */
+radioAudio.addEventListener('playing', () => {
+  if(currentLibId){
+    const item = LIBRARY.find(i => i.id === currentLibId);
+    if(item){
+      document.querySelector('#spInfo .sp-name').textContent = item.title;
+      document.querySelector('#spInfo .sp-genre').className = 'sp-genre';
+      document.querySelector('#spInfo .sp-genre').textContent = 'Biblioteca · ' + item.cat;
+      document.getElementById('spBtn').textContent = '❚❚';
+      document.getElementById('spBtn').classList.remove('paused');
+      npTag.textContent = 'BIBLIOTECA';
+      npTitle.textContent = item.title;
+      npSub.textContent = item.cat + ' · reproducción local';
+      isLive = true;
+    }
+  }
+  renderLibrary();
+});
+radioAudio.addEventListener('pause', renderLibrary);
+
+renderLibrary();
+
+/* ============ PROGRAMACIÓN SEMANAL ============ */
+const DAYS = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+const SLOTS = [
+  {label:"06:00–09:00"},
+  {label:"09:00–12:00"},
+  {label:"12:00–14:00"},
+  {label:"14:00–17:00"},
+  {label:"17:00–20:00"},
+  {label:"20:00–22:00"},
+  {label:"22:00–00:00"},
+];
+const SCHED_CATS = {
+  musica:  {label:"Rotación musical", color:"#5b8ac9"},
+  noticias:{label:"Noticias / Magazine", color:"#e0a458"},
+  podcast: {label:"Podcast / especiales", color:"#6fcf6f"},
+  vivo:    {label:"Programa en vivo", color:"#e8483a"},
+  cuna:    {label:"Cuña / Jingle", color:"#9b7fd4"},
+};
+// matriz [día][franja] -> {cat, title, host}
+const PROGRAMACION = {
+  Lun:[{cat:"musica",title:"Amanecer Meridiano",host:"AutoDJ"},{cat:"noticias",title:"Boletín matutino",host:"Ana Rueda"},{cat:"musica",title:"Mediodía musical",host:"AutoDJ"},{cat:"podcast",title:"Crónicas del barrio",host:"Iván Solís"},{cat:"vivo",title:"La Hora del Café",host:"Diego Marín"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Mar:[{cat:"musica",title:"Amanecer Meridiano",host:"AutoDJ"},{cat:"noticias",title:"Boletín matutino",host:"Ana Rueda"},{cat:"musica",title:"Mediodía musical",host:"AutoDJ"},{cat:"podcast",title:"Entrevista: economía local",host:"Iván Solís"},{cat:"vivo",title:"Tarde de Vinilos",host:"Rocío Peña"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Mié:[{cat:"musica",title:"Amanecer Meridiano",host:"AutoDJ"},{cat:"noticias",title:"Boletín matutino",host:"Ana Rueda"},{cat:"musica",title:"Mediodía musical",host:"AutoDJ"},{cat:"podcast",title:"Crónicas del barrio",host:"Iván Solís"},{cat:"vivo",title:"La Hora del Café",host:"Diego Marín"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Jue:[{cat:"musica",title:"Amanecer Meridiano",host:"AutoDJ"},{cat:"noticias",title:"Boletín matutino",host:"Ana Rueda"},{cat:"musica",title:"Mediodía musical",host:"AutoDJ"},{cat:"podcast",title:"Entrevista: economía local",host:"Iván Solís"},{cat:"vivo",title:"Tarde de Vinilos",host:"Rocío Peña"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Vie:[{cat:"musica",title:"Amanecer Meridiano",host:"AutoDJ"},{cat:"noticias",title:"Boletín matutino",host:"Ana Rueda"},{cat:"musica",title:"Mediodía musical",host:"AutoDJ"},{cat:"vivo",title:"La Hora del Café",host:"Diego Marín"},{cat:"vivo",title:"Noche de Estreno",host:"Rocío Peña"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Sáb:[{cat:"musica",title:"Sábado musical",host:"AutoDJ"},{cat:"musica",title:"Sábado musical",host:"AutoDJ"},{cat:"vivo",title:"Feria del Mediodía",host:"Diego Marín"},{cat:"podcast",title:"Especial de fin de semana",host:"Iván Solís"},{cat:"musica",title:"Rotación de tarde",host:"AutoDJ"},{cat:"vivo",title:"Pista de Baile",host:"Rocío Peña"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+  Dom:[{cat:"musica",title:"Domingo musical",host:"AutoDJ"},{cat:"musica",title:"Domingo musical",host:"AutoDJ"},{cat:"noticias",title:"Resumen semanal",host:"Ana Rueda"},{cat:"musica",title:"Rotación de tarde",host:"AutoDJ"},{cat:"podcast",title:"Crónicas del barrio (repetición)",host:"Iván Solís"},{cat:"musica",title:"Rotación nocturna",host:"AutoDJ"},{cat:"musica",title:"Trasnoche",host:"AutoDJ"}],
+};
+
+function renderSchedule(){
+  const table = document.getElementById('schedTable');
+  let head = '<thead><tr><th>Franja</th>' + DAYS.map(d=>`<th>${d}</th>`).join('') + '</tr></thead>';
+  let body = '<tbody>';
+  SLOTS.forEach((slot, si) => {
+    body += `<tr><td class="sched-time">${slot.label}</td>`;
+    DAYS.forEach(day => {
+      const prog = PROGRAMACION[day][si];
+      const catInfo = SCHED_CATS[prog.cat];
+      body += `<td class="sched-cell">
+        <div class="sched-block" style="background:${catInfo.color}22;" onclick="showSchedDetail('${day}', ${si})">
+          <div class="sb-title" style="color:${catInfo.color}">${prog.title}</div>
+          <div class="sb-host">${prog.host}</div>
+        </div>
+      </td>`;
+    });
+    body += '</tr>';
+  });
+  body += '</tbody>';
+  table.innerHTML = head + body;
+
+  const legend = document.getElementById('schedLegend');
+  legend.innerHTML = Object.values(SCHED_CATS).map(c =>
+    `<div class="legend-item"><span class="legend-chip" style="background:${c.color}"></span>${c.label}</div>`
+  ).join('');
+}
+
+function showSchedDetail(day, slotIdx){
+  const prog = PROGRAMACION[day][slotIdx];
+  const slot = SLOTS[slotIdx];
+  const catInfo = SCHED_CATS[prog.cat];
+  document.getElementById('sdTitle').textContent = prog.title;
+  document.getElementById('sdTitle').style.color = catInfo.color;
+  document.getElementById('sdMeta').textContent = `${day} · ${slot.label} · Locutor: ${prog.host} · ${catInfo.label}`;
+  document.getElementById('schedDetail').classList.add('show');
+}
+renderSchedule();
+
+/* ============ MODAL DE PROGRAMACIÓN (asigna un ítem real de biblioteca a la parrilla) ============ */
+const schedModal = document.getElementById('schedModal');
+const schedDaySel = document.getElementById('schedDay');
+const schedSlotSel = document.getElementById('schedSlot');
+let schedTargetLibId = null;
+
+DAYS.forEach(d => {
+  const opt = document.createElement('option');
+  opt.value = d; opt.textContent = d;
+  schedDaySel.appendChild(opt);
+});
+SLOTS.forEach((s, i) => {
+  const opt = document.createElement('option');
+  opt.value = i; opt.textContent = s.label;
+  schedSlotSel.appendChild(opt);
+});
+
+function openScheduleModal(libId){
+  const item = LIBRARY.find(i => i.id === libId);
+  if(!item) return;
+  schedTargetLibId = libId;
+  document.getElementById('schedModalItem').textContent = `"${item.title}" — ${item.cat}`;
+  schedModal.classList.add('show');
+}
+window.openScheduleModal = openScheduleModal;
+
+document.getElementById('schedCancel').addEventListener('click', () => {
+  schedModal.classList.remove('show');
+});
+document.getElementById('schedConfirm').addEventListener('click', () => {
+  const item = LIBRARY.find(i => i.id === schedTargetLibId);
+  if(!item) return;
+  const day = schedDaySel.value;
+  const slotIdx = parseInt(schedSlotSel.value, 10);
+  PROGRAMACION[day][slotIdx] = {
+    cat: CAT_TO_SCHED[item.cat] || 'musica',
+    title: item.title,
+    host: item.isDemo ? 'Biblioteca (demo)' : 'Biblioteca — subido por ti',
+  };
+  schedModal.classList.remove('show');
+  renderSchedule();
+  renderUpcoming();
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.panel-view').forEach(p => p.classList.remove('active'));
+  document.querySelector('.nav-item[data-panel="programacion"]').classList.add('active');
+  document.getElementById('panel-programacion').classList.add('active');
+});
+
+/* ============ DASHBOARD: próximos programas ============ */
+function renderUpcoming(){
+  const dayNames = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const today = dayNames[new Date().getDay()];
+  const dayKey = today === "Dom" ? "Dom" : today;
+  const list = PROGRAMACION[dayKey] || PROGRAMACION["Lun"];
+  const body = document.getElementById('upcomingBody');
+  body.innerHTML = list.map((p, i) => {
+    const c = SCHED_CATS[p.cat];
+    return `<tr>
+      <td class="dur-mono">${SLOTS[i].label}</td>
+      <td>${p.title}</td>
+      <td>${p.host}</td>
+      <td><span class="cat-badge" style="background:${c.color}22; color:${c.color}">${c.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+renderUpcoming();
+
+/* ============ ANALÍTICAS: barras de oyentes por hora ============ */
+function renderBarChart(){
+  const wrap = document.getElementById('barChart');
+  const hours = ["6h","8h","10h","12h","14h","16h","18h","20h","22h","0h"];
+  const values = [40,65,88,120,150,180,210,260,190,90];
+  const max = Math.max(...values);
+  wrap.innerHTML = values.map((v,i) => `
+    <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;">
+      <div style="width:100%; background:var(--amber); border-radius:2px 2px 0 0; height:${(v/max*100)}px;"></div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--text-faint);">${hours[i]}</div>
+    </div>
+  `).join('');
+}
+renderBarChart();
+</script>
+</body>
+</html>
